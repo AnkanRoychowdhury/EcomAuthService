@@ -1,4 +1,5 @@
 import UserService from "../services/user-service.js"
+import { StatusCodes } from 'http-status-codes';
 
 const userService = new UserService();
 
@@ -10,20 +11,20 @@ export const signup = async (req,res) => {
             password: req.body.password,
             role: req.body.role
         });
-        return res.status(201).json({
+        return res.status(StatusCodes.CREATED).json({
             data: response,
             success: true,
-            message: 'Successfully signed up',
+            message: 'Successfully Signed Up',
             err: {}
         });
     } catch (error) {
-        res.status(500).json({
-            data:{},
+        console.log(error)
+        return res.status(error.statusCode).json({
+            data: {},
             success: false,
-            message: 'SignUp failed',
-            err: error
+            message: error.message,
+            err: error.explanation
         });
-        throw error;
     }
 }
 
@@ -33,19 +34,38 @@ export const signin = async (req,res) => {
             email: req.body.email,
             password: req.body.password
         });
-        return res.status(200).json({
+        return res.status(StatusCodes.OK).json({
             data: response,
             success: true,
-            message: 'Successfully logged in',
+            message: 'Successfully Logged In',
             err: {}
         });
     } catch (error) {
-        res.status(500).json({
-            data:{},
+        return res.status(error.statusCode).json({
+            data: {},
             success: false,
-            message: 'SignIn failed',
-            err: error
+            message: error.message,
+            err: error.explanation
         });
-        throw error;
+    }
+}
+
+export const isAuthenticated = async (req,res) => {
+    try {
+        const token = req.headers['x-access-token'];
+        const response = await userService.isAuthenticate(token);
+        return res.status(StatusCodes.OK).json({
+            data: response,
+            success: true,
+            message: 'Authenticated User Successfully',
+            err: {}
+        });
+    } catch (error) {
+        return res.status(error.statusCode).json({
+            data: {},
+            success: false,
+            message: error.message,
+            err: error.explanation
+        });
     }
 }

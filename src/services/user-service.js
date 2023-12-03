@@ -3,6 +3,8 @@ import bcrypt from 'bcrypt';
 
 import { SALT, JWT_KEY } from '../config/serverConfig.js';
 import UserRepository from './../repository/user-repository.js';
+import AppErrors from '../utils/error-handler.js';
+import { StatusCodes } from 'http-status-codes';
 
 export default class UserService {
     constructor() {
@@ -31,10 +33,10 @@ export default class UserService {
 
     async signUp (data) {
         try {
-            const oldUser = await this.getUserByEmail(data.email);
-            if(oldUser){
-                throw {error: 'User already exist'}
-            }
+            await this.userRepository.isExists(data.email);
+            // if(oldUser){
+            //     throw {error: 'User already exist'}
+            // }
             const newUser = await this.#createUser(data);
             return newUser;
         } catch (error) {
@@ -52,19 +54,22 @@ export default class UserService {
      */
     async signIn(data){
         try {
-            const user = await this.getUserByEmail(data.email);
-            if(!user){
-                throw {error: 'Please SignUp first'}
-            }
+            const user = await this.userRepository.getUserByEmail(data.email);
             const matchPassword = this.#comparePassword(data.password,user.password);
             if(!matchPassword){
-                console.log("Password doesn't match");
-                throw {error: 'Incorrect password'}
+                throw new AppErrors(
+                    'EmailNotFound',
+                    'Please check your email & password',
+                    "User doesn't exist with the given email & password",
+                    StatusCodes.NOT_FOUND
+                );
             }
             const newJWT = this.#createToken({email:user.email,id:user.id,role: user.roles});
             return newJWT;
         } catch (error) {
-            console.log("Something went wrong during signin");
+            if(error.name == 'EmailNotFound'){
+                throw error;
+            }
             throw error;
         }
     }
@@ -79,7 +84,7 @@ export default class UserService {
             if(!user){
                 throw {error: 'Invalid User'}
             }
-            return user.id;
+            return user;
         } catch (error) {
             throw error;
         }
@@ -90,7 +95,12 @@ export default class UserService {
             const token = jwt.sign(user,JWT_KEY, {expiresIn: '30 days'});
             return token;
         } catch (error) {
-            throw error;
+            throw new AppErrors(
+                'TokenIssue',
+                "Token creation failed",
+                "Something went wrong",
+                StatusCodes.INTERNAL_SERVER_ERROR
+            );
         }
     }
 
@@ -99,8 +109,12 @@ export default class UserService {
             const response = jwt.verify(token,JWT_KEY);
             return response;
         } catch (error) {
-            console.log("Something went wrong in token verify");
-            throw error;
+            throw new AppErrors(
+                'TokenIssue',
+                "Invalid Token",
+                "Please check your Access Token",
+                StatusCodes.BAD_REQUEST
+            );
         }
     }
 
